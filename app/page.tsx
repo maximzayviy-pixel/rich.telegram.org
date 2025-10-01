@@ -19,7 +19,8 @@ export default function Page() {
     const webApp = getTelegramWebApp();
     const user = getTelegramUserUnsafe();
     
-    if (webApp && user) {
+    // Проверяем, что мы действительно в Telegram WebApp
+    if (webApp && user && webApp.initData) {
       setIsInTelegram(true);
       setTgUser(user);
       
@@ -29,40 +30,41 @@ export default function Page() {
       webApp.enableClosingConfirmation();
       
       // Верификация пользователя
-      verifyInitData(webApp.initData || '')
+      verifyInitData(webApp.initData)
         .then(async (res) => {
           if (res?.ok) {
             setVerified(true);
             // Сохранение пользователя в БД
-            await fetch('/api/user/upsert', {
-              method: 'POST', 
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({
-                tg_id: user.id,
-                username: user.username,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                photo_url: user.photo_url
-              })
-            });
-            await refreshBoth(user.id);
+            try {
+              await fetch('/api/user/upsert', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  tg_id: user.id,
+                  username: user.username,
+                  first_name: user.first_name,
+                  last_name: user.last_name,
+                  photo_url: user.photo_url
+                })
+              });
+              await refreshBoth(user.id);
+            } catch (error) {
+              console.error('Error saving user:', error);
+              setVerified(false);
+            }
           } else {
             setVerified(false);
           }
         })
-        .catch(() => setVerified(false));
+        .catch((error) => {
+          console.error('Verification error:', error);
+          setVerified(false);
+        });
     } else {
+      // Не в Telegram WebApp - показываем предупреждение
       setIsInTelegram(false);
-      // Для тестирования в браузере
-      setTgUser({
-        id: 123456789,
-        username: 'test_user',
-        first_name: 'Test',
-        last_name: 'User',
-        photo_url: undefined
-      });
-      setVerified(true);
-      refreshBoth(123456789);
+      setTgUser(null);
+      setVerified(false);
     }
     
     // Загрузка лидерборда
@@ -205,7 +207,7 @@ export default function Page() {
               </div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Stars Board</h1>
             </div>
-            {tgUser && (
+            {tgUser ? (
               <button 
                 onClick={() => setShowProfile(!showProfile)}
                 className="flex items-center gap-2 p-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -226,6 +228,20 @@ export default function Page() {
                   </div>
                 </div>
               </button>
+            ) : (
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-yellow-100 dark:bg-yellow-900/20">
+                <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center">
+                  <Settings className="w-4 h-4 text-white" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    Откройте в Telegram
+                  </div>
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400">
+                    Для полного функционала
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -378,10 +394,22 @@ export default function Page() {
             </div>
             
             {!verified && (
-              <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  {isInTelegram ? 'Ошибка верификации. Перезапустите приложение.' : 'Откройте приложение в Telegram для полного функционала'}
+              <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-700">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Settings className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  <span className="font-medium text-yellow-800 dark:text-yellow-200">Требуется Telegram</span>
+                </div>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                  {isInTelegram ? 
+                    'Ошибка верификации. Перезапустите приложение в Telegram.' : 
+                    'Откройте приложение в Telegram для пополнения баланса и участия в рейтинге.'
+                  }
                 </p>
+                {!isInTelegram && (
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400">
+                    Лидерборд доступен для просмотра без входа
+                  </div>
+                )}
               </div>
             )}
           </div>

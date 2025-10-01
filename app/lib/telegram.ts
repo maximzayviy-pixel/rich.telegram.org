@@ -12,6 +12,7 @@ export function getTelegramUserUnsafe(): TelegramUser | null {
   const w = window as any;
   const user = w?.Telegram?.WebApp?.initDataUnsafe?.user;
   if (!user) return null;
+  
   return {
     id: user.id,
     username: user.username,
