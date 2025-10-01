@@ -2,9 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Trophy, Star, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { getTelegramUserUnsafe, verifyInitData, TelegramUser } from './lib/telegram';
+import { getTelegramUserUnsafe, verifyInitData, TelegramUser } from '../app/lib/telegram';
 import { Card, Button } from '../components/ui';
-import './globals.css';
 
 export default function Page() {
   const [tgUser, setTgUser] = useState<TelegramUser | null>(null);
@@ -124,7 +123,7 @@ export default function Page() {
               <p className="text-white/80">Кидай звёзды на баланс — поднимайся в рейтинге. Вывод доступен через 21 день с момента депозита.</p>
               {stats && (
                 <div className="mt-5 grid grid-cols-2 gap-4">
-                  <div className="rounded-xl bg:white/5 border border-white/10 p-4">
+                  <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                     <div className="text-white/70 text-xs">Баланс</div>
                     <div className="text-2xl font-bold flex items-center gap-2"><Star className="w-5 h-5" /> {stats.balance}</div>
                   </div>
