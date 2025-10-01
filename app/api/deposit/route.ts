@@ -1,17 +1,34 @@
 import { NextResponse } from 'next/server';
+import { validateDepositRequest, checkRateLimit } from '../../../lib/validation';
+
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
   try {
-    const { tg_id, amount } = await req.json() as { tg_id: number; amount: number };
-    
-    if (!tg_id || !amount || amount <= 0) {
-      return NextResponse.json({ ok: false, reason: 'Invalid payload' }, { status: 400 });
+    // Rate limiting
+    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(`deposit:${clientIP}`, 10, 60000)) {
+      return NextResponse.json({ ok: false, reason: 'Too many requests' }, { status: 429 });
     }
+
+    const body = await req.json();
+    
+    // Валидация входных данных
+    const validation = validateDepositRequest(body);
+    if (!validation.isValid) {
+      return NextResponse.json({ 
+        ok: false, 
+        reason: 'Invalid payload', 
+        errors: validation.errors 
+      }, { status: 400 });
+    }
+    
+    const { tg_id, amount } = body;
     
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE;
     if (!serviceKey) {
-      return NextResponse.json({ ok: false, reason: 'Missing service role' }, { status: 500 });
+      console.error('Missing SUPABASE_SERVICE_ROLE environment variable');
+      return NextResponse.json({ ok: false, reason: 'Service unavailable' }, { status: 500 });
     }
     
     const { createClient } = await import('@supabase/supabase-js');
@@ -26,7 +43,7 @@ export async function POST(req: Request) {
     
     if (userError && userError.code !== 'PGRST116') {
       console.error('User check error:', userError);
-      return NextResponse.json({ ok: false, reason: 'User check failed', error: userError.message }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: 'User check failed' }, { status: 400 });
     }
     
     if (!user) {
@@ -40,7 +57,7 @@ export async function POST(req: Request) {
     
     if (depositError) {
       console.error('Deposit error:', depositError);
-      return NextResponse.json({ ok: false, reason: 'Deposit failed', error: depositError.message }, { status: 400 });
+      return NextResponse.json({ ok: false, reason: 'Deposit failed' }, { status: 400 });
     }
     
     return NextResponse.json({ ok: true });

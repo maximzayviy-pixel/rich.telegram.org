@@ -11,13 +11,11 @@ export function getTelegramUserUnsafe(): TelegramUser | null {
   if (typeof window === 'undefined') return null;
   const w = window as any;
   
-  // Более надежная проверка Telegram WebApp
+  // Простая проверка наличия Telegram WebApp
   const webApp = w?.Telegram?.WebApp;
   if (!webApp) return null;
   
-  // Проверяем, что это действительно Telegram WebApp
-  if (!webApp.initData && !webApp.initDataUnsafe) return null;
-  
+  // Пытаемся получить пользователя из initDataUnsafe
   const user = webApp.initDataUnsafe?.user;
   if (!user) return null;
   
@@ -40,12 +38,26 @@ export function getTelegramWebApp() {
 export function isTelegramWebApp(): boolean {
   if (typeof window === 'undefined') return false;
   const w = window as any;
-  const webApp = w?.Telegram?.WebApp;
   
-  if (!webApp) return false;
+  // Проверяем наличие Telegram WebApp объекта
+  if (!w?.Telegram?.WebApp) return false;
   
-  // Проверяем наличие ключевых свойств Telegram WebApp
-  return !!(webApp.initData || webApp.initDataUnsafe || webApp.platform);
+  // Проверяем, что мы в Telegram WebApp (не в обычном браузере)
+  const webApp = w.Telegram.WebApp;
+  
+  // Проверяем наличие обязательных свойств
+  if (!webApp.initData && !webApp.initDataUnsafe) return false;
+  
+  // Проверяем platform - должен быть telegram
+  if (webApp.platform && webApp.platform !== 'telegram') return false;
+  
+  // Проверяем версию WebApp
+  if (webApp.version && parseFloat(webApp.version) < 6.0) return false;
+  
+  // Проверяем, что мы не в режиме разработки (если не нужно)
+  if (webApp.isExpanded === false && !webApp.initData) return false;
+  
+  return true;
 }
 
 export async function verifyInitData(initData: string) {

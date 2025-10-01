@@ -79,6 +79,8 @@ export default function RootLayout({
                 
                 // Also try after a short delay in case WebApp loads asynchronously
                 setTimeout(initWebApp, 50);
+                setTimeout(initWebApp, 200);
+                setTimeout(initWebApp, 500);
               }
             `,
           }}

@@ -22,10 +22,17 @@ export default function Page() {
       const user = getTelegramUserUnsafe();
       const isInTG = isTelegramWebApp();
       
+      console.log('Telegram check:', { 
+        hasWebApp: !!webApp, 
+        hasUser: !!user, 
+        isInTG,
+        userAgent: navigator.userAgent,
+        platform: webApp?.platform,
+        version: webApp?.version
+      });
       
-      if (isInTG && webApp && user) {
+      if (isInTG && webApp) {
         setIsInTelegram(true);
-        setTgUser(user);
         
         // Настройка WebApp
         webApp.ready();
@@ -44,45 +51,56 @@ export default function Page() {
         
         webApp.onEvent('viewportChanged', handleViewportChange);
         
-        // Верификация пользователя
-        const initData = webApp.initData || '';
-        if (initData) {
-          verifyInitData(initData)
-            .then(async (res) => {
-              if (res?.ok) {
-                setVerified(true);
-                // Сохранение пользователя в БД
-                try {
-                  await fetch('/api/user/upsert', {
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                      tg_id: user.id,
-                      username: user.username,
-                      first_name: user.first_name,
-                      last_name: user.last_name,
-                      photo_url: user.photo_url
-                    })
-                  });
-                  await refreshBoth(user.id);
-                } catch (error) {
-                  console.error('Error saving user:', error);
+        if (user) {
+          setTgUser(user);
+          
+          // Верификация пользователя
+          const initData = webApp.initData || '';
+          if (initData) {
+            verifyInitData(initData)
+              .then(async (res) => {
+                console.log('Verification result:', res);
+                if (res?.ok) {
+                  setVerified(true);
+                  // Сохранение пользователя в БД
+                  try {
+                    await fetch('/api/user/upsert', {
+                      method: 'POST', 
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({
+                        tg_id: user.id,
+                        username: user.username,
+                        first_name: user.first_name,
+                        last_name: user.last_name,
+                        photo_url: user.photo_url
+                      })
+                    });
+                    await refreshBoth(user.id);
+                  } catch (error) {
+                    console.error('Error saving user:', error);
+                    setVerified(false);
+                  }
+                } else {
                   setVerified(false);
                 }
-              } else {
+              })
+              .catch((error) => {
+                console.error('Verification error:', error);
                 setVerified(false);
-              }
-            })
-            .catch((error) => {
-              console.error('Verification error:', error);
-              setVerified(false);
-            });
+              });
+          } else {
+            // Если нет initData, но есть пользователь, все равно показываем его
+            console.log('No initData, but showing user anyway');
+            setVerified(true);
+            refreshBoth(user.id);
+          }
         } else {
-          // Если нет initData, но есть пользователь, все равно показываем его
-          setVerified(true);
-          refreshBoth(user.id);
+          console.log('No user data found');
+          setTgUser(null);
+          setVerified(false);
         }
       } else {
+        console.log('Not in Telegram WebApp');
         // Не в Telegram WebApp - показываем предупреждение
         setIsInTelegram(false);
         setTgUser(null);
