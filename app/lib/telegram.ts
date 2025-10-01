@@ -39,25 +39,29 @@ export function isTelegramWebApp(): boolean {
   if (typeof window === 'undefined') return false;
   const w = window as any;
   
-  // Проверяем наличие Telegram WebApp объекта
-  if (!w?.Telegram?.WebApp) return false;
+  // Проверяем User-Agent для дополнительной уверенности
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isTelegramUserAgent = userAgent.includes('telegram') || userAgent.includes('webapp');
   
-  // Проверяем, что мы в Telegram WebApp (не в обычном браузере)
+  // Простая проверка - есть ли объект Telegram WebApp
+  if (!w?.Telegram?.WebApp) {
+    // Если нет WebApp объекта, но User-Agent указывает на Telegram, все равно считаем что мы в Telegram
+    return isTelegramUserAgent;
+  }
+  
   const webApp = w.Telegram.WebApp;
   
-  // Проверяем наличие обязательных свойств
-  if (!webApp.initData && !webApp.initDataUnsafe) return false;
+  // Если есть WebApp объект, проверяем его свойства
+  if (webApp.initDataUnsafe?.user) {
+    return true;
+  }
   
-  // Проверяем platform - должен быть telegram
-  if (webApp.platform && webApp.platform !== 'telegram') return false;
+  // Если нет данных пользователя, но есть WebApp и правильный User-Agent
+  if (isTelegramUserAgent) {
+    return true;
+  }
   
-  // Проверяем версию WebApp
-  if (webApp.version && parseFloat(webApp.version) < 6.0) return false;
-  
-  // Проверяем, что мы не в режиме разработки (если не нужно)
-  if (webApp.isExpanded === false && !webApp.initData) return false;
-  
-  return true;
+  return false;
 }
 
 export async function verifyInitData(initData: string) {
