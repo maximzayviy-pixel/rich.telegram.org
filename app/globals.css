@@ -4,17 +4,42 @@
 
 :root {
   color-scheme: light dark;
+  /* Telegram WebApp viewport variables */
+  --tg-viewport-height: 100vh;
+  --tg-viewport-stable-height: 100vh;
 }
 
 body {
   @apply min-h-screen;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  /* Use Telegram viewport height when available */
+  min-height: var(--tg-viewport-height);
 }
 
 /* Telegram WebApp specific styles */
 .telegram-webapp {
   background: var(--tg-theme-bg-color, #ffffff);
   color: var(--tg-theme-text-color, #000000);
+  min-height: var(--tg-viewport-height);
+}
+
+/* Safe area support for mobile devices */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+  
+  .safe-area-left {
+    padding-left: max(env(safe-area-inset-left), 0px);
+  }
+  
+  .safe-area-right {
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
 }
 
 /* Custom scrollbar */
@@ -60,4 +85,38 @@ body {
 /* Smooth transitions */
 * {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Telegram WebApp fullscreen optimizations */
+@media screen and (max-height: 600px) {
+  .telegram-webapp .container {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .telegram-webapp .space-y-6 > * + * {
+    margin-top: 1rem;
+  }
+}
+
+/* Ensure content fits in viewport */
+.telegram-webapp main {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Optimize for small screens in Telegram */
+@media screen and (max-width: 400px) {
+  .telegram-webapp .text-2xl {
+    font-size: 1.5rem;
+  }
+  
+  .telegram-webapp .text-xl {
+    font-size: 1.25rem;
+  }
+  
+  .telegram-webapp .p-6 {
+    padding: 1rem;
+  }
 }

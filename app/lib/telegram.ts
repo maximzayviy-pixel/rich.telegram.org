@@ -10,7 +10,15 @@ export type TelegramUser = {
 export function getTelegramUserUnsafe(): TelegramUser | null {
   if (typeof window === 'undefined') return null;
   const w = window as any;
-  const user = w?.Telegram?.WebApp?.initDataUnsafe?.user;
+  
+  // Более надежная проверка Telegram WebApp
+  const webApp = w?.Telegram?.WebApp;
+  if (!webApp) return null;
+  
+  // Проверяем, что это действительно Telegram WebApp
+  if (!webApp.initData && !webApp.initDataUnsafe) return null;
+  
+  const user = webApp.initDataUnsafe?.user;
   if (!user) return null;
   
   return {
@@ -30,7 +38,14 @@ export function getTelegramWebApp() {
 }
 
 export function isTelegramWebApp(): boolean {
-  return typeof window !== 'undefined' && !!(window as any)?.Telegram?.WebApp;
+  if (typeof window === 'undefined') return false;
+  const w = window as any;
+  const webApp = w?.Telegram?.WebApp;
+  
+  if (!webApp) return false;
+  
+  // Проверяем наличие ключевых свойств Telegram WebApp
+  return !!(webApp.initData || webApp.initDataUnsafe || webApp.platform);
 }
 
 export async function verifyInitData(initData: string) {

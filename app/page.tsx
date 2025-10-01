@@ -14,61 +14,92 @@ export default function Page() {
   const [stats, setStats] = useState<{balance: number; withdrawable: number} | null>(null);
   const [isInTelegram, setIsInTelegram] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   useEffect(() => {
-    const webApp = getTelegramWebApp();
-    const user = getTelegramUserUnsafe();
-    
-    // Проверяем, что мы действительно в Telegram WebApp
-    if (webApp && user && webApp.initData) {
-      setIsInTelegram(true);
-      setTgUser(user);
+    const checkTelegramWebApp = () => {
+      const webApp = getTelegramWebApp();
+      const user = getTelegramUserUnsafe();
+      const isInTG = isTelegramWebApp();
       
-      // Настройка WebApp
-      webApp.ready();
-      webApp.expand();
-      webApp.enableClosingConfirmation();
       
-      // Верификация пользователя
-      verifyInitData(webApp.initData)
-        .then(async (res) => {
-          if (res?.ok) {
-            setVerified(true);
-            // Сохранение пользователя в БД
-            try {
-              await fetch('/api/user/upsert', {
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                  tg_id: user.id,
-                  username: user.username,
-                  first_name: user.first_name,
-                  last_name: user.last_name,
-                  photo_url: user.photo_url
-                })
-              });
-              await refreshBoth(user.id);
-            } catch (error) {
-              console.error('Error saving user:', error);
+      if (isInTG && webApp && user) {
+        setIsInTelegram(true);
+        setTgUser(user);
+        
+        // Настройка WebApp
+        webApp.ready();
+        webApp.expand();
+        webApp.enableClosingConfirmation();
+        
+        // Установка начальной высоты viewport
+        setViewportHeight(webApp.viewportHeight || window.innerHeight);
+        
+        // Обработка изменений viewport
+        const handleViewportChange = () => {
+          const newHeight = webApp.viewportHeight || window.innerHeight;
+          setViewportHeight(newHeight);
+          document.documentElement.style.setProperty('--tg-viewport-height', newHeight + 'px');
+        };
+        
+        webApp.onEvent('viewportChanged', handleViewportChange);
+        
+        // Верификация пользователя
+        const initData = webApp.initData || '';
+        if (initData) {
+          verifyInitData(initData)
+            .then(async (res) => {
+              if (res?.ok) {
+                setVerified(true);
+                // Сохранение пользователя в БД
+                try {
+                  await fetch('/api/user/upsert', {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                      tg_id: user.id,
+                      username: user.username,
+                      first_name: user.first_name,
+                      last_name: user.last_name,
+                      photo_url: user.photo_url
+                    })
+                  });
+                  await refreshBoth(user.id);
+                } catch (error) {
+                  console.error('Error saving user:', error);
+                  setVerified(false);
+                }
+              } else {
+                setVerified(false);
+              }
+            })
+            .catch((error) => {
+              console.error('Verification error:', error);
               setVerified(false);
-            }
-          } else {
-            setVerified(false);
-          }
-        })
-        .catch((error) => {
-          console.error('Verification error:', error);
-          setVerified(false);
-        });
-    } else {
-      // Не в Telegram WebApp - показываем предупреждение
-      setIsInTelegram(false);
-      setTgUser(null);
-      setVerified(false);
-    }
+            });
+        } else {
+          // Если нет initData, но есть пользователь, все равно показываем его
+          setVerified(true);
+          refreshBoth(user.id);
+        }
+      } else {
+        // Не в Telegram WebApp - показываем предупреждение
+        setIsInTelegram(false);
+        setTgUser(null);
+        setVerified(false);
+      }
+    };
+    
+    // Проверяем сразу
+    checkTelegramWebApp();
+    
+    // Также проверяем через небольшую задержку на случай, если WebApp загружается асинхронно
+    const timeoutId = setTimeout(checkTelegramWebApp, 100);
     
     // Загрузка лидерборда
     loadLeaderboard();
+    
+    return () => clearTimeout(timeoutId);
   }, []);
 
   async function refreshBoth(tg_id?: number) {
@@ -196,9 +227,15 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <main 
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800" 
+      style={{ 
+        minHeight: viewportHeight > 0 ? `${viewportHeight}px` : 'var(--tg-viewport-height, 100vh)',
+        maxHeight: viewportHeight > 0 ? `${viewportHeight}px` : 'none'
+      }}
+    >
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+      <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 safe-area-top">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -249,8 +286,19 @@ export default function Page() {
 
       {/* Profile Modal */}
       {showProfile && tgUser && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-t-2xl w-full max-w-md p-6">
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center p-4 safe-area-top safe-area-bottom"
+          style={{ 
+            paddingTop: 'max(env(safe-area-inset-top), 1rem)',
+            paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)'
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-t-2xl w-full max-w-md p-6"
+            style={{
+              maxHeight: viewportHeight > 0 ? `${viewportHeight - 100}px` : '80vh'
+            }}
+          >
             <div className="flex items-center gap-4 mb-6">
               {tgUser.photo_url ? (
                 <img src={tgUser.photo_url} className="w-16 h-16 rounded-full" alt="avatar" />
@@ -286,7 +334,7 @@ export default function Page() {
               </div>
             )}
             
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-4">
               <button 
                 onClick={() => setShowProfile(false)}
                 className="flex-1 py-3 px-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium"
@@ -309,7 +357,14 @@ export default function Page() {
         </div>
       )}
 
-      <div className="p-4 space-y-6">
+      <div 
+        className="p-4 space-y-6 safe-area-bottom" 
+        style={{ 
+          paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)',
+          maxHeight: viewportHeight > 0 ? `${viewportHeight - 80}px` : 'none',
+          overflowY: 'auto'
+        }}
+      >
 
         {/* Main Action Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
@@ -467,7 +522,13 @@ export default function Page() {
             <Trophy className="w-5 h-5 text-blue-500" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Полный лидерборд</h3>
           </div>
-          <div className="space-y-2">
+          <div 
+            className="space-y-2"
+            style={{
+              maxHeight: viewportHeight > 0 ? `${Math.min(viewportHeight - 400, 300)}px` : '300px',
+              overflowY: 'auto'
+            }}
+          >
             {leaderboard.map((row, idx) => (
               <div key={row.tg_id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <div className="w-8 text-center text-gray-500 dark:text-gray-400 font-medium">
