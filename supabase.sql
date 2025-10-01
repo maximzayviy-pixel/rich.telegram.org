@@ -35,9 +35,9 @@ alter table public.users enable row level security;
 alter table public.deposits enable row level security;
 alter table public.withdrawals enable row level security;
 
-create policy if not exists "read_users_public" on public.users for select using (true);
-create policy if not exists "read_deposits_public" on public.deposits for select using (true);
-create policy if not exists "read_withdrawals_public" on public.withdrawals for select using (true);
+create policy "read_users_public" on public.users for select using (true);
+create policy "read_deposits_public" on public.deposits for select using (true);
+create policy "read_withdrawals_public" on public.withdrawals for select using (true);
 
 grant select on public.users, public.deposits, public.withdrawals to anon;
 revoke insert, update, delete on public.users, public.deposits, public.withdrawals from anon;

@@ -4,6 +4,13 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Stars Board - Telegram Leaderboard',
   description: 'Кидай звёзды на баланс — поднимайся в рейтинге. Вывод доступен через 21 день с момента депозита.',
+  keywords: 'telegram, stars, leaderboard, webapp, blockchain, crypto',
+  authors: [{ name: 'Stars Board Team' }],
+  openGraph: {
+    title: 'Stars Board - Telegram Leaderboard',
+    description: 'Кидай звёзды на баланс — поднимайся в рейтинге. Вывод доступен через 21 день с момента депозита.',
+    type: 'website',
+  },
 }
 
 export const viewport: Viewport = {
@@ -11,7 +18,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#000000',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+  ],
 }
 
 export default function RootLayout({
@@ -20,21 +30,34 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ru">
+    <html lang="ru" className="telegram-webapp">
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-                window.Telegram.WebApp.ready();
-                window.Telegram.WebApp.expand();
-                window.Telegram.WebApp.enableClosingConfirmation();
+              // Telegram WebApp initialization
+              if (typeof window !== 'undefined') {
+                // Wait for Telegram WebApp to load
+                if (window.Telegram?.WebApp) {
+                  const webApp = window.Telegram.WebApp;
+                  webApp.ready();
+                  webApp.expand();
+                  webApp.enableClosingConfirmation();
+                  
+                  // Set theme colors
+                  document.documentElement.style.setProperty('--tg-theme-bg-color', webApp.themeParams.bg_color || '#ffffff');
+                  document.documentElement.style.setProperty('--tg-theme-text-color', webApp.themeParams.text_color || '#000000');
+                  document.documentElement.style.setProperty('--tg-theme-hint-color', webApp.themeParams.hint_color || '#999999');
+                  document.documentElement.style.setProperty('--tg-theme-link-color', webApp.themeParams.link_color || '#2481cc');
+                  document.documentElement.style.setProperty('--tg-theme-button-color', webApp.themeParams.button_color || '#2481cc');
+                  document.documentElement.style.setProperty('--tg-theme-button-text-color', webApp.themeParams.button_text_color || '#ffffff');
+                }
               }
             `,
           }}
         />
       </head>
-      <body>
+      <body className="antialiased">
         {children}
       </body>
     </html>
